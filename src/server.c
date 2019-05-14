@@ -53,20 +53,27 @@ int send_response(int fd, char *header, char *content_type, void *body, int cont
     const int max_response_size = 262144;
     char response[max_response_size];
 
-    char *testBody = "<h1>Hello, World!</h1>";
-    int length = strlen(testBody);
+    // char *testBody = "<h1>Hello, World!</h1>";
+    // int length = strlen(testBody);
+    time_t t = time(NULL);
+    struct tm *local_time = localtime(&t);
+    char *timestamp = asctime(local_time);
+
     // Build HTTP response and store it in response
-    sprintf(response, "%s\n"
-                      "%s\n"
-                      "%d\n"
-                      "\n"
-                      "%s\n",
-            header, content_type, content_length, (char *)body);
 
     ///////////////////
     // IMPLEMENT ME! //
     ///////////////////
-    int response_length = strlen(response);
+    int response_length = sprintf(response, "%s\n"
+                                            "Connection: close\n"
+                                            "Content-Type: %s\n"
+                                            "Content-Length: %d\n"
+                                            "Date: %s"
+                                            "\n", // date string has newline at end of it, double newline ends header and starts body to render
+                                  header, content_type, content_length, timestamp);
+
+    memcpy(response + response_length, body, content_length);
+    response_length += content_length;
     // Send it all!
     int rv = send(fd, response, response_length, 0);
 
@@ -107,6 +114,8 @@ void resp_404(int fd)
 
     // Fetch the 404.html file
     snprintf(filepath, sizeof filepath, "%s/404.html", SERVER_FILES);
+    // snprintf(filepath, sizeof filepath, "%s/cat.jpg", SERVER_ROOT);
+
     filedata = file_load(filepath);
 
     if (filedata == NULL)
@@ -163,19 +172,39 @@ void handle_http_request(int fd, struct cache *cache)
         return;
     }
 
-    resp_404(fd);
+    // resp_404(fd);
     ///////////////////
     // IMPLEMENT ME! //
     ///////////////////
 
     // Read the first two components of the first line of the request
+    char request_type[20], request_route[20];
+    sscanf(request, "%s %s", request_type, request_route);
 
+    printf("i see a request: %s - %s\n", request_type, request_route);
     // If GET, handle the get endpoints
-
-    //    Check if it's /d20 and handle that special case
-    //    Otherwise serve the requested file by calling get_file()
+    if (strcmp(request_type, "GET") == 0)
+    {
+        //    Check if it's /d20 and handle that special case
+        //    Otherwise serve the requested file by calling get_file()
+        printf("request_route: %s\n", request_route);
+        if (strcmp(request_route, "/d20") == 0)
+        {
+            printf("its a d20!\n");
+            get_d20(fd);
+        }
+        else
+        {
+            printf("it wants the files!\n");
+            get_file(fd, cache, request_route);
+        }
+    }
 
     // (Stretch) If POST, handle the post request
+    else
+    {
+        resp_404(fd);
+    }
 }
 
 /**
