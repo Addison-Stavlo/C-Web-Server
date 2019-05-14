@@ -91,13 +91,16 @@ int send_response(int fd, char *header, char *content_type, void *body, int cont
 void get_d20(int fd)
 {
     // Generate a random number between 1 and 20 inclusive
-
+    // seed random based off time to ensure randomness in replay of program
+    srand(time(0));
+    int rand_num = rand() % 20;
+    char snum[3];
+    sprintf(snum, "%d", rand_num);
     ///////////////////
     // IMPLEMENT ME! //
     ///////////////////
-
     // Use send_response() to send it back as text/plain data
-
+    send_response(fd, "HTTP/1.1 200 OK", "text/plain", &snum, strlen(snum));
     ///////////////////
     // IMPLEMENT ME! //
     ///////////////////
