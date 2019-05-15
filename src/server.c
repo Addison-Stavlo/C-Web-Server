@@ -250,14 +250,6 @@ int main(void)
 
     struct cache *cache = cache_create(10, 0);
 
-    // cache_put(cache, "/stuff", "text", "blah blah", 9);
-    // struct cache_entry *entry = cache_get(cache, "/stuff");
-    // printf("cache stuff: %s\n", entry->path);
-    // struct cache_entry *dne = cache_get(cache, "jandflje");
-    // printf("should show null: %s\n", dne);
-    // cache_free(cache);
-    // printf("cache stuff: %s\n", entry->path);
-
     // Get a listening socket
     int listenfd = get_listener_socket(PORT);
 
