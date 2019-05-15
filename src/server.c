@@ -142,23 +142,35 @@ void get_file(int fd, struct cache *cache, char *request_path)
     ///////////////////
     // IMPLEMENT ME! //
     ///////////////////
-    char filepath[4096];
-    struct file_data *filedata;
-    char *mime_type;
-
-    snprintf(filepath, sizeof filepath, "%s%s", SERVER_ROOT, request_path);
-
-    filedata = file_load(filepath);
-
-    if (filedata == NULL)
+    struct cache_entry *entry = cache_get(cache, request_path);
+    if (entry != NULL)
     {
-        resp_404(fd);
+        printf("%s - in cache\n", request_path);
+        send_response(fd, "HTTP/1.1 200 OK", entry->content_type, entry->content, entry->content_length);
     }
     else
     {
-        mime_type = mime_type_get(filepath);
-        send_response(fd, "HTTP/1.1 200 OK", mime_type, filedata->data, filedata->size);
-        file_free(filedata);
+        printf("%s - not in cache\n", request_path);
+
+        char filepath[4096];
+        struct file_data *filedata;
+        char *mime_type;
+
+        snprintf(filepath, sizeof filepath, "%s%s", SERVER_ROOT, request_path);
+
+        filedata = file_load(filepath);
+
+        if (filedata == NULL)
+        {
+            resp_404(fd);
+        }
+        else
+        {
+            mime_type = mime_type_get(filepath);
+            cache_put(cache, request_path, mime_type, filedata->data, filedata->size);
+            send_response(fd, "HTTP/1.1 200 OK", mime_type, filedata->data, filedata->size);
+            file_free(filedata);
+        }
     }
 }
 
@@ -241,6 +253,8 @@ int main(void)
     // cache_put(cache, "/stuff", "text", "blah blah", 9);
     // struct cache_entry *entry = cache_get(cache, "/stuff");
     // printf("cache stuff: %s\n", entry->path);
+    // struct cache_entry *dne = cache_get(cache, "jandflje");
+    // printf("should show null: %s\n", dne);
     // cache_free(cache);
     // printf("cache stuff: %s\n", entry->path);
 
