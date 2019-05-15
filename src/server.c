@@ -117,7 +117,6 @@ void resp_404(int fd)
 
     // Fetch the 404.html file
     snprintf(filepath, sizeof filepath, "%s/404.html", SERVER_FILES);
-    // snprintf(filepath, sizeof filepath, "%s/cat.jpg", SERVER_ROOT);
 
     filedata = file_load(filepath);
 
