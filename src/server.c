@@ -208,6 +208,22 @@ char *find_start_of_body(char *header)
     return body;
 }
 
+void post_save(int fd, char *body, char *path)
+{
+
+    char filepath[4096];
+    snprintf(filepath, sizeof filepath, "%s%s", SERVER_ROOT, path);
+
+    int new_file = open(filepath, O_CREAT);
+
+    // TODO make char * -> void * and find byte length for write
+    write(new_file, body, strlen(body) * sizeof(char));
+
+    close(new_file);
+
+    // TODO need to send {"status": "ok"}
+    send_response(fd, "HTTP/1.1 201 CREATED", "application/json", "status: ok", 10);
+}
 /**
  * Handle HTTP request and send response
  */
@@ -253,6 +269,7 @@ void handle_http_request(int fd, struct cache *cache)
     {
         char *body = find_start_of_body(request);
         printf("the body is: \n%s\n", body);
+        post_save(fd, body, request_route);
     }
     else
     {
