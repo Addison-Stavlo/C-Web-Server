@@ -96,14 +96,8 @@ void get_d20(int fd)
     int rand_num = rand() % 20;
     char snum[3];
     sprintf(snum, "%d", rand_num);
-    ///////////////////
-    // IMPLEMENT ME! //
-    ///////////////////
     // Use send_response() to send it back as text/plain data
     send_response(fd, "HTTP/1.1 200 OK", "text/plain", &snum, strlen(snum));
-    ///////////////////
-    // IMPLEMENT ME! //
-    ///////////////////
 }
 
 /**
@@ -139,9 +133,6 @@ void resp_404(int fd)
  */
 void get_file(int fd, struct cache *cache, char *request_path)
 {
-    ///////////////////
-    // IMPLEMENT ME! //
-    ///////////////////
     struct cache_entry *entry = cache_get(cache, request_path);
     if (entry != NULL)
     {
@@ -185,6 +176,36 @@ char *find_start_of_body(char *header)
     ///////////////////
     // IMPLEMENT ME! // (Stretch)
     ///////////////////
+
+    // body will be after \r\n\r\n or \n\n or \r\r
+    char *body = strstr(header, "\n\n");
+
+    if (body != NULL)
+    {
+        body += 2;
+    }
+    else
+    {
+        printf("did not find /n/n");
+        body = strstr(header, "\r\n\r\n");
+
+        if (body != NULL)
+        {
+            body += 4;
+        }
+        else
+        {
+            printf("did not find /r/n/r/n");
+            body = strstr(header, "\r\r");
+
+            if (body != NULL)
+            {
+                body += 2;
+            }
+        }
+    }
+
+    return body;
 }
 
 /**
@@ -203,11 +224,6 @@ void handle_http_request(int fd, struct cache *cache)
         perror("recv");
         return;
     }
-
-    // resp_404(fd);
-    ///////////////////
-    // IMPLEMENT ME! //
-    ///////////////////
 
     // Read the first two components of the first line of the request
     char request_type[20], request_route[20];
@@ -233,6 +249,11 @@ void handle_http_request(int fd, struct cache *cache)
     }
 
     // (Stretch) If POST, handle the post request
+    else if (strcmp(request_type, "POST") == 0)
+    {
+        char *body = find_start_of_body(request);
+        printf("the body is: \n%s\n", body);
+    }
     else
     {
         resp_404(fd);
