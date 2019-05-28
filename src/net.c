@@ -8,7 +8,7 @@
 #include <arpa/inet.h>
 #include "net.h"
 
-#define BACKLOG 10	 // how many pending connections queue will hold
+#define BACKLOG 10 // how many pending connections queue will hold
 
 /**
  * This gets an Internet address, either IPv4 or IPv6
@@ -17,11 +17,12 @@
  */
 void *get_in_addr(struct sockaddr *sa)
 {
-    if (sa->sa_family == AF_INET) {
-        return &(((struct sockaddr_in*)sa)->sin_addr);
+    if (sa->sa_family == AF_INET)
+    {
+        return &(((struct sockaddr_in *)sa)->sin_addr);
     }
 
-    return &(((struct sockaddr_in6*)sa)->sin6_addr);
+    return &(((struct sockaddr_in6 *)sa)->sin6_addr);
 }
 
 /**
@@ -46,7 +47,8 @@ int get_listener_socket(char *port)
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE; // use my IP
 
-    if ((rv = getaddrinfo(NULL, port, &hints, &servinfo)) != 0) {
+    if ((rv = getaddrinfo(NULL, port, &hints, &servinfo)) != 0)
+    {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
         return -1;
     }
@@ -54,11 +56,13 @@ int get_listener_socket(char *port)
     // Once we have a list of potential interfaces, loop through them
     // and try to set up a socket on each. Quit looping the first time
     // we have success.
-    for(p = servinfo; p != NULL; p = p->ai_next) {
+    for (p = servinfo; p != NULL; p = p->ai_next)
+    {
 
         // Try to make a socket based on this candidate interface
         if ((sockfd = socket(p->ai_family, p->ai_socktype,
-            p->ai_protocol)) == -1) {
+                             p->ai_protocol)) == -1)
+        {
             //perror("server: socket");
             continue;
         }
@@ -66,7 +70,8 @@ int get_listener_socket(char *port)
         // SO_REUSEADDR prevents the "address already in use" errors
         // that commonly come up when testing servers.
         if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
-            sizeof(int)) == -1) {
+                       sizeof(int)) == -1)
+        {
             perror("setsockopt");
             close(sockfd);
             freeaddrinfo(servinfo); // all done with this structure
@@ -76,7 +81,8 @@ int get_listener_socket(char *port)
         // See if we can bind this socket to this local IP address. This
         // associates the file descriptor (the socket descriptor) that
         // we will read and write on with a specific IP address.
-        if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
+        if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1)
+        {
             close(sockfd);
             //perror("server: bind");
             continue;
@@ -90,14 +96,16 @@ int get_listener_socket(char *port)
 
     // If p is NULL, it means we didn't break out of the loop, above,
     // and we don't have a good socket.
-    if (p == NULL)  {
+    if (p == NULL)
+    {
         fprintf(stderr, "webserver: failed to find local address\n");
         return -3;
     }
 
     // Start listening. This is what allows remote computers to connect
     // to this socket/IP.
-    if (listen(sockfd, BACKLOG) == -1) {
+    if (listen(sockfd, BACKLOG) == -1)
+    {
         //perror("listen");
         close(sockfd);
         return -4;

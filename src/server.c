@@ -34,7 +34,7 @@
 #include "mime.h"
 #include "cache.h"
 
-#define PORT "3490"  // the port users will be connecting to
+#define PORT "3490" // the port users will be connecting to
 
 #define SERVER_FILES "./serverfiles"
 #define SERVER_ROOT "./serverroot"
@@ -53,22 +53,37 @@ int send_response(int fd, char *header, char *content_type, void *body, int cont
     const int max_response_size = 262144;
     char response[max_response_size];
 
+    // char *testBody = "<h1>Hello, World!</h1>";
+    // int length = strlen(testBody);
+    time_t t = time(NULL);
+    struct tm *local_time = localtime(&t);
+    char *timestamp = asctime(local_time);
+
     // Build HTTP response and store it in response
 
     ///////////////////
     // IMPLEMENT ME! //
     ///////////////////
+    int response_length = sprintf(response, "%s\n"
+                                            "Connection: close\n"
+                                            "Content-Type: %s\n"
+                                            "Content-Length: %d\n"
+                                            "Date: %s"
+                                            "\n", // date string has newline at end of it, double newline ends header and starts body to render
+                                  header, content_type, content_length, timestamp);
 
+    memcpy(response + response_length, body, content_length);
+    response_length += content_length;
     // Send it all!
     int rv = send(fd, response, response_length, 0);
 
-    if (rv < 0) {
+    if (rv < 0)
+    {
         perror("send");
     }
 
     return rv;
 }
-
 
 /**
  * Send a /d20 endpoint response
@@ -76,16 +91,13 @@ int send_response(int fd, char *header, char *content_type, void *body, int cont
 void get_d20(int fd)
 {
     // Generate a random number between 1 and 20 inclusive
-    
-    ///////////////////
-    // IMPLEMENT ME! //
-    ///////////////////
-
+    // seed random based off time to ensure randomness in replay of program
+    srand(time(0));
+    int rand_num = rand() % 20;
+    char snum[3];
+    sprintf(snum, "%d", rand_num);
     // Use send_response() to send it back as text/plain data
-
-    ///////////////////
-    // IMPLEMENT ME! //
-    ///////////////////
+    send_response(fd, "HTTP/1.1 200 OK", "text/plain", &snum, strlen(snum));
 }
 
 /**
@@ -94,14 +106,16 @@ void get_d20(int fd)
 void resp_404(int fd)
 {
     char filepath[4096];
-    struct file_data *filedata; 
+    struct file_data *filedata;
     char *mime_type;
 
     // Fetch the 404.html file
     snprintf(filepath, sizeof filepath, "%s/404.html", SERVER_FILES);
+
     filedata = file_load(filepath);
 
-    if (filedata == NULL) {
+    if (filedata == NULL)
+    {
         // TODO: make this non-fatal
         fprintf(stderr, "cannot find system 404 file\n");
         exit(3);
@@ -119,9 +133,36 @@ void resp_404(int fd)
  */
 void get_file(int fd, struct cache *cache, char *request_path)
 {
-    ///////////////////
-    // IMPLEMENT ME! //
-    ///////////////////
+    struct cache_entry *entry = cache_get(cache, request_path);
+    if (entry != NULL)
+    {
+        printf("%s - in cache\n", request_path);
+        send_response(fd, "HTTP/1.1 200 OK", entry->content_type, entry->content, entry->content_length);
+    }
+    else
+    {
+        printf("%s - not in cache\n", request_path);
+
+        char filepath[4096];
+        struct file_data *filedata;
+        char *mime_type;
+
+        snprintf(filepath, sizeof filepath, "%s%s", SERVER_ROOT, request_path);
+
+        filedata = file_load(filepath);
+
+        if (filedata == NULL)
+        {
+            resp_404(fd);
+        }
+        else
+        {
+            mime_type = mime_type_get(filepath);
+            cache_put(cache, request_path, mime_type, filedata->data, filedata->size);
+            send_response(fd, "HTTP/1.1 200 OK", mime_type, filedata->data, filedata->size);
+            file_free(filedata);
+        }
+    }
 }
 
 /**
@@ -135,8 +176,54 @@ char *find_start_of_body(char *header)
     ///////////////////
     // IMPLEMENT ME! // (Stretch)
     ///////////////////
+
+    // body will be after \r\n\r\n or \n\n or \r\r
+    char *body = strstr(header, "\n\n");
+
+    if (body != NULL)
+    {
+        body += 2;
+    }
+    else
+    {
+        printf("did not find /n/n");
+        body = strstr(header, "\r\n\r\n");
+
+        if (body != NULL)
+        {
+            body += 4;
+        }
+        else
+        {
+            printf("did not find /r/n/r/n");
+            body = strstr(header, "\r\r");
+
+            if (body != NULL)
+            {
+                body += 2;
+            }
+        }
+    }
+
+    return body;
 }
 
+void post_save(int fd, char *body, char *path)
+{
+
+    char filepath[4096];
+    snprintf(filepath, sizeof filepath, "%s%s", SERVER_ROOT, path);
+
+    int new_file = open(filepath, O_CREAT);
+
+    // TODO make char * -> void * and find byte length for write
+    write(new_file, body, strlen(body) * sizeof(char));
+
+    close(new_file);
+
+    // TODO need to send {"status": "ok"}
+    send_response(fd, "HTTP/1.1 201 CREATED", "application/json", "status: ok", 10);
+}
 /**
  * Handle HTTP request and send response
  */
@@ -148,25 +235,46 @@ void handle_http_request(int fd, struct cache *cache)
     // Read request
     int bytes_recvd = recv(fd, request, request_buffer_size - 1, 0);
 
-    if (bytes_recvd < 0) {
+    if (bytes_recvd < 0)
+    {
         perror("recv");
         return;
     }
 
+    // Read the first two components of the first line of the request
+    char request_type[20], request_route[20];
+    sscanf(request, "%s %s", request_type, request_route);
 
-    ///////////////////
-    // IMPLEMENT ME! //
-    ///////////////////
-
-    // Read the first two components of the first line of the request 
- 
+    printf("i see a request: %s - %s\n", request_type, request_route);
     // If GET, handle the get endpoints
-
-    //    Check if it's /d20 and handle that special case
-    //    Otherwise serve the requested file by calling get_file()
-
+    if (strcmp(request_type, "GET") == 0)
+    {
+        //    Check if it's /d20 and handle that special case
+        //    Otherwise serve the requested file by calling get_file()
+        printf("request_route: %s\n", request_route);
+        if (strcmp(request_route, "/d20") == 0)
+        {
+            printf("its a d20!\n");
+            get_d20(fd);
+        }
+        else
+        {
+            printf("it wants the files!\n");
+            get_file(fd, cache, request_route);
+        }
+    }
 
     // (Stretch) If POST, handle the post request
+    else if (strcmp(request_type, "POST") == 0)
+    {
+        char *body = find_start_of_body(request);
+        printf("the body is: \n%s\n", body);
+        post_save(fd, body, request_route);
+    }
+    else
+    {
+        resp_404(fd);
+    }
 }
 
 /**
@@ -174,7 +282,7 @@ void handle_http_request(int fd, struct cache *cache)
  */
 int main(void)
 {
-    int newfd;  // listen on sock_fd, new connection on newfd
+    int newfd;                          // listen on sock_fd, new connection on newfd
     struct sockaddr_storage their_addr; // connector's address information
     char s[INET6_ADDRSTRLEN];
 
@@ -183,7 +291,8 @@ int main(void)
     // Get a listening socket
     int listenfd = get_listener_socket(PORT);
 
-    if (listenfd < 0) {
+    if (listenfd < 0)
+    {
         fprintf(stderr, "webserver: fatal error getting listening socket\n");
         exit(1);
     }
@@ -193,34 +302,35 @@ int main(void)
     // This is the main loop that accepts incoming connections and
     // responds to the request. The main parent process
     // then goes back to waiting for new connections.
-    
-    while(1) {
-        socklen_t sin_size = sizeof their_addr;
 
+    while (1)
+    {
+        socklen_t sin_size = sizeof their_addr;
         // Parent process will block on the accept() call until someone
         // makes a new connection:
         newfd = accept(listenfd, (struct sockaddr *)&their_addr, &sin_size);
-        if (newfd == -1) {
+
+        if (newfd == -1)
+        {
             perror("accept");
             continue;
         }
 
         // Print out a message that we got the connection
         inet_ntop(their_addr.ss_family,
-            get_in_addr((struct sockaddr *)&their_addr),
-            s, sizeof s);
+                  get_in_addr((struct sockaddr *)&their_addr),
+                  s, sizeof s);
         printf("server: got connection from %s\n", s);
-        
+
         // newfd is a new socket descriptor for the new connection.
         // listenfd is still listening for new connections.
 
         handle_http_request(newfd, cache);
 
         close(newfd);
-    }
+    };
 
     // Unreachable code
 
     return 0;
 }
-
